@@ -1,13 +1,22 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
+import { io } from "socket.io-client";
+import { Socket } from "socket.io-client/build/esm/socket";
+import { useRoute, useRouter } from "vue-router";
+import router from "@/router";
+
+const URL = "http://localhost:3000";
 
 const cameras = ref<MediaDeviceInfo[]>([]);
-const selectedCameraID = ref("");
 
+const selectedCameraID = ref("");
 const myVideo = ref<HTMLVideoElement | null>(null);
+
 const myStream = ref<MediaStream | null>(null);
 const isCameraOff = ref<boolean>(false);
 const isAudioOff = ref<boolean>(false);
+
+const hostSocket = ref<Socket | null>(null);
 
 const getMedia = async (deviceId: string) => {
   const initialConstrains = {
@@ -24,6 +33,13 @@ const getMedia = async (deviceId: string) => {
       deviceId ? cameraConstrains : initialConstrains
     );
     if (myVideo.value) myVideo.value.srcObject = myStream.value;
+
+    if (isCameraOff.value) {
+      isCameraOff.value = false;
+    }
+    if (isAudioOff.value) {
+      isAudioOff.value = false;
+    }
   } catch (e) {
     console.log(e);
   }
@@ -48,6 +64,8 @@ const handleAudioClick = () => {
 };
 
 onMounted(async () => {
+  const route = useRoute();
+
   const devices = await navigator.mediaDevices.enumerateDevices();
   cameras.value = devices.filter((device) => device.kind === "videoinput");
 
@@ -57,6 +75,17 @@ onMounted(async () => {
     handleCameraClick();
     handleAudioClick();
   }
+
+  hostSocket.value = io(URL);
+  console.log(route.query);
+  hostSocket.value.emit("setting", {
+    name: route.query.name,
+    room: route.query.room,
+  });
+
+  hostSocket.value.on("welcome", (evt) => {
+    console.log(evt);
+  });
 });
 </script>
 <template>
